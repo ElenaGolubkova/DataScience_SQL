@@ -1,0 +1,200 @@
+--Reformat the final_assignments_qa to look like the final_assignments table, filling in any missing values with a placeholder of the appropriate data type.
+
+SELECT 
+  item_id,
+  test_assignment,
+  test_number,
+  (CASE 
+  WHEN test_number='test_a' THEN CAST('2013-01-05 00:00:00' AS DATE) 
+  WHEN test_number='test_b' THEN CAST('2013-07-24 00:00:00' AS DATE) 
+  WHEN test_number='test_c' THEN CAST('2014-01-19 00:00:00' AS DATE) 
+  WHEN test_number='test_d' THEN CAST('2014-09-05 00:00:00' AS DATE) 
+  WHEN test_number='test_e' THEN CAST('2015-02-18 00:00:00' AS DATE) 
+  WHEN test_number='test_f' THEN CAST('2015-12-10 00:00:00' AS DATE) ELSE NULL END
+  )                                                                          AS test_start_date
+FROM 
+      (
+      SELECT 
+        item_id,
+        test_a                                                                        AS test_assignment,
+        (CASE WHEN test_b IS NOT NULL THEN 'test_a' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+      UNION ALL
+      SELECT 
+        item_id,
+        test_b                                                                        AS test_assignment,
+        (CASE WHEN test_b IS NOT NULL THEN 'test_b' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+      UNION ALL
+      SELECT 
+        item_id,
+        test_c                                                                        AS test_assignment,
+        (CASE WHEN test_c IS NOT NULL THEN 'test_c' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+      UNION ALL
+      SELECT 
+        item_id,
+        test_d                                                                        AS test_assignment,
+        (CASE WHEN test_d IS NOT NULL THEN 'test_d' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+      UNION ALL
+      SELECT 
+        item_id,
+        test_e                                                                        AS test_assignment,
+        (CASE WHEN test_e IS NOT NULL THEN 'test_e' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+      UNION ALL
+      SELECT 
+        item_id,
+        test_f                                                                        AS test_assignment,
+        (CASE WHEN test_f IS NOT NULL THEN 'test_f' ELSE NULL END)                    AS test_number
+      FROM 
+        dsv1069.final_assignments_qa
+        ) pre_final_assignment
+
+
+-- Use this table to 
+-- compute order_binary for the 30 day window after the test_start_date
+-- for the test named item_test_2
+
+SELECT 
+  test_assignment,
+  COUNT(DISTINCT item_id) AS total_items,
+  SUM(orders_binary_30d)  AS items_with_orders_30d
+FROM
+(
+SELECT 
+  test_events.test_number,
+  test_events.test_assignment,
+  test_events.item_id,
+  MAX(CASE WHEN orders.created_at>test_events.test_start_date THEN 1 ELSE 0 END) AS orders_binary,
+  MAX(CASE WHEN (orders.created_at>test_events.test_start_date 
+                                    AND DATE_PART('day',orders.created_at-test_events.test_start_date) <= 30)
+                                    THEN 1 ELSE 0 END) orders_binary_30d
+FROM 
+  (
+   SELECT 
+     item_id,
+     test_assignment,
+     test_number,
+     test_start_date
+   FROM 
+     dsv1069.final_assignments
+     ) test_events
+     LEFT JOIN dsv1069.orders
+     ON orders.item_id=test_events.item_id
+  GROUP BY
+  test_events.test_number,
+  test_events.test_assignment,
+  test_events.item_id ) item_level
+WHERE 
+  test_number = 'item_test_2'  
+GROUP BY
+  test_assignment
+
+
+
+-- Use this table to 
+-- compute view_binary for the 30 day window after the test_start_date
+-- for the test named item_test_2
+
+SELECT 
+  test_assignment,
+  COUNT(item_id) AS total_items,
+  SUM(views_binary_30d)   AS items_with_views_30d,
+  AVG(average_views_per_item) as average_views_per_item
+FROM
+(
+SELECT 
+  test_events.test_assignment,
+  test_events.item_id,
+  MAX(CASE WHEN views.event_time>test_events.test_start_date THEN 1 ELSE 0 END) AS views_binary,
+  MAX(CASE WHEN (views.event_time>test_events.test_start_date 
+                                    AND DATE_PART('day',views.event_time-test_events.test_start_date) <= 30)
+                                    THEN 1 ELSE 0 END) views_binary_30d,
+  COUNT(DISTINCT CASE WHEN views.event_time>test_events.test_start_date THEN event_id ELSE NULL END) average_views_per_item
+FROM 
+  (
+   SELECT 
+     item_id,
+     test_assignment,
+     test_number,
+     test_start_date
+   FROM 
+     dsv1069.final_assignments
+   ) test_events
+     LEFT JOIN 
+     (SELECT 
+      event_time,
+      event_id,
+      CAST(parameter_value AS INT) AS item_id
+     FROM 
+      dsv1069.events
+     WHERE
+      event_name ='view_item'
+     AND 
+      parameter_name = 'item_id') views
+     ON 
+      views.item_id=test_events.item_id
+     AND 
+      views.event_time >= test_events.test_start_date
+     AND 
+      DATE_PART('day', views.event_time - test_events.test_start_date ) <= 30 
+     WHERE 
+      test_number = 'item_test_2'
+  GROUP BY
+  test_events.test_assignment,
+  test_events.item_id ) item_level
+GROUP BY
+  test_assignment
+LIMIT 100
+
+
+
+--Use the https://thumbtack.github.io/abba/demo/abba.html to compute the lifts in metrics and the p-values for the binary metrics ( 30 day order binary and 30 day view binary) using a interval 95% confidence.
+ Compute lift and p-value
+
+Order metric
+
+p-value= 0.88
+
+control success rate = 30%
+
+treatment success rate = 30%
+
+improvement = -1%
+
+
+
+These results are not statistically significant because the p-value is big.
+
+That`s why we can't conclude that the two test_assignment produce different effects. 
+
+With more data we could have better results. 
+
+
+
+View metric
+
+p-value= 0.20
+
+control success rate = 81%
+
+treatment success rate = 83%
+
+improvement = 2.6%
+
+
+
+The p-value is lower than for order metric but it`s still big. 
+
+These results are not statistically significant.
+
+That`s why we can't conclude that the two test_assignment produce different effects. 
+
+With more data we could have better results. 
