@@ -162,39 +162,23 @@ LIMIT 100
 Order metric
 
 p-value= 0.88
-
 control success rate = 30%
-
 treatment success rate = 30%
-
 improvement = -1%
 
-
-
 These results are not statistically significant because the p-value is big.
-
 That`s why we can't conclude that the two test_assignment produce different effects. 
-
 With more data we could have better results. 
-
 
 
 View metric
 
 p-value= 0.20
-
 control success rate = 81%
-
 treatment success rate = 83%
-
 improvement = 2.6%
 
-
-
 The p-value is lower than for order metric but it`s still big. 
-
 These results are not statistically significant.
-
 That`s why we can't conclude that the two test_assignment produce different effects. 
-
 With more data we could have better results. 
